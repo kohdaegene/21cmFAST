@@ -1248,6 +1248,55 @@ double FgtrM_st_PL(double z, double Mmin, double MFeedback, double alpha_pl){
     
     return (result_lower) / (OMm*RHOcrit);
 }
+/*
+ FUNCTION FgtrM_st_ZF(z, M)
+ Computes the fraction of mass contained in haloes with mass > M at redshift z
+ Uses Sheth-Torman correction
+ For arbitrary zeta function
+ */
+
+//double interpolate_ZF(double z, double m, array ZF) {
+//return interpolated value from array
+//}
+
+double dFdlnM_st_ZF (double lnM, void *params){
+    
+    struct parameters_gsl_ST_int_ vals = *(struct parameters_gsl_ST_int_ *)params;
+    
+    double M = exp(lnM);
+    float z = vals.z_obs;
+    ZF = vals.zeta_func;
+    
+    return dNdM_st(z, M) * M * M * interpolated_ZF(z,M,ZF);
+}
+double FgtrM_st_ZF(double z, double Mmin, array ZF){
+    
+    double result_lower, result_upper, error, lower_limit, upper_limit;
+    gsl_function F;
+    double rel_tol  = 0.001; //<- relative tolerance
+    gsl_integration_workspace * w_lower
+    = gsl_integration_workspace_alloc (1000);
+    gsl_integration_workspace * w_upper
+    = gsl_integration_workspace_alloc (1000);
+    
+    struct parameters_gsl_ST_int_  parameters_gsl_ST_lower = {
+        .z_obs = z,
+        .zeta_func = ZF
+    };
+    
+    F.function = &dFdlnM_st_ZF;
+    F.params = &parameters_gsl_ST_lower;
+    lower_limit = log(Mmin);
+    upper_limit = log(1e16);
+    
+    gsl_integration_qag (&F, lower_limit, upper_limit, 0, rel_tol,
+                         1000, GSL_INTEG_GAUSS61, w_lower, &result_lower, &error);
+    gsl_integration_workspace_free (w_lower);
+    
+    return (result_lower) / (OMm*RHOcrit);
+}
+
+
 
 void initialiseSplinedSigmaM(float M_Min, float M_Max)
 {

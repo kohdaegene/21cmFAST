@@ -31,6 +31,8 @@
   Support for Alpha power law scaling of zeta with halo mass added by Bradley Greig, 2016
 */
 
+#define ZETAFUNC 6789
+#define BUFFERSIZE 100
 float *Fcoll;
 
 void init_21cmMC_arrays() {
@@ -83,7 +85,7 @@ unsigned long long SAMPLING_INTERVAL = (((unsigned long long)(HII_TOT_NUM_PIXELS
 int main(int argc, char ** argv){
 
     char filename[300];
-    FILE *F, *pPipe;
+    FILE *F, *pPipe, *tfile;
     float REDSHIFT, mass, R, xf, yf, zf, growth_factor, pixel_mass, cell_length_factor;
     float ave_N_min_cell, ION_EFF_FACTOR, M_MIN, ALPHA;
     int x,y,z, N_min_cell, LAST_FILTER_STEP, num_th, arg_offset, i,j,k;
@@ -97,8 +99,16 @@ int main(int argc, char ** argv){
     gsl_rng * r;
     i=0;
     float nua, dnua, temparg;
-
+    double *zfunc;
     ALPHA =  EFF_FACTOR_PL_INDEX;
+
+    if (ALPHA == ZETAFUNC) {
+        zfunc = (double *)malloc(BUFFERSIZE*BUFFERSIZE* sizeof(float));
+        //read in table
+        F = fopen("ztable.txt","r");
+        fprintf(stderr,"Reading in Zeta Table\n");
+         
+    }
     
     // check arguments
     if ((argc>2) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
@@ -206,11 +216,14 @@ int main(int argc, char ** argv){
     for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
 
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if(ALPHA != 0.) {
-        mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
+    if (ALPHA == ZETAFUNC) {
+        //calc mean_f_coll_st = FgtrM_st_ZF()
+    }
+    else if(ALPHA == 0.) {
+        mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
     }
     else {
-        mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
+        mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
     }
     mean_f_coll_ps = FgtrM(REDSHIFT, M_MIN);
     if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
@@ -533,7 +546,7 @@ int main(int argc, char ** argv){
                     
                     for (x=0; x<HII_DIM; x++){
                         for (y=0; y<HII_DIM; y++){
-                            for (z=0; z<HII_DIM; z++){
+                            for (z=1; z<HII_DIM; z++){
                                 density_over_mean = 1.0 + *((float *)deltax_unfiltered + HII_R_FFT_INDEX(x,y,z));
                                 erfc_num = (Deltac - (density_over_mean-1)) /  growth_factor;
                                 Fcoll[HII_R_FFT_INDEX(x,y,z)] = splined_erfc(erfc_num/erfc_denom_cell);
