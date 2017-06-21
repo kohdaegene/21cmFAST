@@ -1,6 +1,13 @@
 #include "bubble_helper_progs.c"
 #include "heating_helper_progs.c"
 
+#include <stdio.h>
+#include <stdlib.h>
+
+#include <gsl/gsl_math.h>
+#include <gsl/gsl_interp2d.h>
+#include <gsl/gsl_spline2d.h>
+
 /*
   USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]
 
@@ -101,15 +108,20 @@ int main(int argc, char ** argv){
     float nua, dnua, temparg;
     double *zfunc;
     ALPHA =  EFF_FACTOR_PL_INDEX;
+    const gsl_interp2d_type *T = gsl_interp2d_bilinear;
+    const size_t N = 1000;
+    int count;
+    int Mcount = 100;
+    int zcount = 20;
+    const double xM[Mcount];
+    const double yz[zcount];
+    const size_t nx = sizeof(xM) / sizeof(double);
+    const size_t ny = sizeof(yz) / sizeof(double);
+    gsl_spline2d *spline = gsl_spline2d_alloca(T,nx,ny);
+    gsl_interp_accel *xacc = gsl_interp_accel_alloc();
+    gsl_interp_accel *yacc = gsl_interp_accel_alloc();
 
-    if (ALPHA == ZETAFUNC) {
-        zfunc = (double *)malloc(BUFFERSIZE*BUFFERSIZE* sizeof(float));
-        //read in table
-        F = fopen("ztable.txt","r");
-        fprintf(stderr,"Reading in Zeta Table\n");
-         
-    }
-    
+   
     // check arguments
     if ((argc>2) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
         // user specified num proc
@@ -216,14 +228,11 @@ int main(int argc, char ** argv){
     for (ct=0; ct<HII_TOT_NUM_PIXELS; ct++){    xH[ct] = 1;  }
 
     // lets check if we are going to bother with computing the inhmogeneous field at all...
-    if (ALPHA == ZETAFUNC) {
-        //calc mean_f_coll_st = FgtrM_st_ZF()
-    }
-    else if(ALPHA == 0.) {
-        mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
+    if (ALPHA != 0) {
+        mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
     }
     else {
-        mean_f_coll_st = FgtrM_st_PL(REDSHIFT,M_MIN,M_MIN,ALPHA);
+        mean_f_coll_st = FgtrM_st(REDSHIFT, M_MIN);
     }
     mean_f_coll_ps = FgtrM(REDSHIFT, M_MIN);
     if ((mean_f_coll_st/f_coll_crit < HII_ROUND_ERR)){ // way too small to ionize anything...
@@ -512,7 +521,8 @@ int main(int argc, char ** argv){
                     break;
                 }
                 erfc_denom_cell = sqrt(temparg);
-		
+	            // zeta func stuff
+                //
                 if(ALPHA!=0.) {
                     initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,RtoM(cell_length_factor*BOX_LEN/(float)HII_DIM));
                     initialiseFcoll_spline(REDSHIFT,M_MIN,RtoM(cell_length_factor*BOX_LEN/(float)HII_DIM),RtoM(cell_length_factor*BOX_LEN/(float)HII_DIM),M_MIN,ALPHA);
@@ -583,7 +593,9 @@ int main(int argc, char ** argv){
                 break;
             }
 	    erfc_denom = sqrt(temparg);
-	    
+	        //zeta func stuff here
+            //
+
             if(ALPHA!=0.) {
                 initialiseGL_Fcoll(NGLlow,NGLhigh,M_MIN,RtoM(R));
                 initialiseFcoll_spline(REDSHIFT,M_MIN,RtoM(R),RtoM(R),M_MIN,ALPHA);
@@ -640,7 +652,7 @@ int main(int argc, char ** argv){
             for (y=0; y<HII_DIM; y++){
                 for (z=0; z<HII_DIM; z++){
                     if (LAST_FILTER_STEP) {
-                        
+                        //zeta func here    
                         if(ALPHA!=0.) {
                             
                             if(*((float *)deltax_unfiltered + HII_R_FFT_INDEX(x,y,z)) <= -1.) {

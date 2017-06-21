@@ -13,6 +13,7 @@
 #include <gsl/gsl_spline.h>
 #include "cosmo_progs.c"
 #include "misc.c"
+#include "interp_func.c"
 
 /* New in v1.1 */
 #define ERFC_NPTS (int) 75
@@ -42,6 +43,8 @@ static gsl_spline *erfc_spline;
 #define Nhigh 200
 #define Nlow 100
 #define NMass 200
+
+#define ZETAFUNC 6789
 
 static double log_MFspline_table[SPLINE_NPTS], MFspline_params[SPLINE_NPTS];
 static double log_MFspline_table_densgtr1[SPLINE_NPTS], MFspline_params_densgtr1[SPLINE_NPTS];
@@ -895,8 +898,12 @@ double splined_erfc(double x){
 }
 
 float FgtrConditionalM_second(float z, float M1, float M2, float MFeedback, float alpha, float delta1, float delta2) {
-    
-    return exp(M1)*pow(exp(M1)/MFeedback,alpha)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    if (alpha == ZETAFUNC){
+        return exp(M1)*interp_func(z,M1)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    }
+    else {
+        return exp(M1)*pow(exp(M1)/MFeedback,alpha)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    }
 }
 
 float dNdM_conditional_second(float z, float M1, float M2, float delta1, float delta2){
@@ -1172,8 +1179,12 @@ float FgtrConditionallnM(float M1, struct parameters_gsl_int_ parameters_gsl_int
     float alpha = parameters_gsl_int.alpha_pl;
     float delta1 = parameters_gsl_int.del_traj_1;
     float delta2 = parameters_gsl_int.del_traj_2;
-    
-    return exp(M1)*pow(exp(M1)/MFeedback,alpha)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    if (alpha == ZETAFUNC){
+        return exp(M1)*interp_func(z,M1)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    }
+    else {
+        return exp(M1)*pow(exp(M1)/MFeedback,alpha)*dNdM_conditional_second(z,M1,M2,delta1,delta2)/sqrt(2.*PI);
+    }
 }
 
 float GaussLegengreQuad_Fcoll(int n, float z, float M2, float MFeedback, float alpha, float delta1, float delta2)
@@ -1218,9 +1229,15 @@ double dFdlnM_st_PL (double lnM, void *params){
     float z = vals.z_obs;
     float MFeedback = vals.M_Feed;
     float alpha = vals.alpha_pl;
-    
-    return dNdM_st(z, M) * M * M * pow((M/MFeedback),alpha);
+
+    if (alpha == ZETAFUNC){
+        return dNdM_st(z, M) * M * M * interp_func(z, lnM);
+    } 
+    else{
+        return dNdM_st(z, M) * M * M * pow((M/MFeedback),alpha);
+    }
 }
+
 double FgtrM_st_PL(double z, double Mmin, double MFeedback, double alpha_pl){
     
     double result_lower, result_upper, error, lower_limit, upper_limit;
@@ -1230,7 +1247,8 @@ double FgtrM_st_PL(double z, double Mmin, double MFeedback, double alpha_pl){
     = gsl_integration_workspace_alloc (1000);
     gsl_integration_workspace * w_upper
     = gsl_integration_workspace_alloc (1000);
-    
+
+   
     struct parameters_gsl_ST_int_  parameters_gsl_ST_lower = {
         .z_obs = z,
         .M_Feed = MFeedback,
@@ -1248,55 +1266,6 @@ double FgtrM_st_PL(double z, double Mmin, double MFeedback, double alpha_pl){
     
     return (result_lower) / (OMm*RHOcrit);
 }
-/*
- FUNCTION FgtrM_st_ZF(z, M)
- Computes the fraction of mass contained in haloes with mass > M at redshift z
- Uses Sheth-Torman correction
- For arbitrary zeta function
- */
-
-//double interpolate_ZF(double z, double m, array ZF) {
-//return interpolated value from array
-//}
-
-double dFdlnM_st_ZF (double lnM, void *params){
-    
-    struct parameters_gsl_ST_int_ vals = *(struct parameters_gsl_ST_int_ *)params;
-    
-    double M = exp(lnM);
-    float z = vals.z_obs;
-    ZF = vals.zeta_func;
-    
-    return dNdM_st(z, M) * M * M * interpolated_ZF(z,M,ZF);
-}
-double FgtrM_st_ZF(double z, double Mmin, array ZF){
-    
-    double result_lower, result_upper, error, lower_limit, upper_limit;
-    gsl_function F;
-    double rel_tol  = 0.001; //<- relative tolerance
-    gsl_integration_workspace * w_lower
-    = gsl_integration_workspace_alloc (1000);
-    gsl_integration_workspace * w_upper
-    = gsl_integration_workspace_alloc (1000);
-    
-    struct parameters_gsl_ST_int_  parameters_gsl_ST_lower = {
-        .z_obs = z,
-        .zeta_func = ZF
-    };
-    
-    F.function = &dFdlnM_st_ZF;
-    F.params = &parameters_gsl_ST_lower;
-    lower_limit = log(Mmin);
-    upper_limit = log(1e16);
-    
-    gsl_integration_qag (&F, lower_limit, upper_limit, 0, rel_tol,
-                         1000, GSL_INTEG_GAUSS61, w_lower, &result_lower, &error);
-    gsl_integration_workspace_free (w_lower);
-    
-    return (result_lower) / (OMm*RHOcrit);
-}
-
-
 
 void initialiseSplinedSigmaM(float M_Min, float M_Max)
 {
@@ -1343,7 +1312,6 @@ void initialiseFcoll_spline(float z, float Mmin, float Mmax, float Mval, float M
     
     for (i=0;i<SPLINE_NPTS;i++){
         overdense_val = log10(1.+overdense_small_low) + (float)i/(SPLINE_NPTS-1.)*(log10(1.+overdense_small_high) - log10(1.+overdense_small_low));
-        
         log_Fcoll_spline_table[i] = log10(GaussLegengreQuad_Fcoll(NGLlow,z,log(Mval),MFeedback,alphapl,Deltac,pow(10.,overdense_val)-1.));
         Fcoll_spline_params[i] = overdense_val;
         
