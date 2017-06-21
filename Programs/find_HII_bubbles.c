@@ -5,8 +5,6 @@
 #include <stdlib.h>
 
 #include <gsl/gsl_math.h>
-#include <gsl/gsl_interp2d.h>
-#include <gsl/gsl_spline2d.h>
 
 /*
   USAGE: find_HII_bubbles [-p <num of processors>] <redshift> [<ionization efficiency factor zeta>] [<Tvir_min> <ionizing mfp in ionized IGM> <Alpha, power law for ionization efficiency>]
@@ -108,20 +106,7 @@ int main(int argc, char ** argv){
     float nua, dnua, temparg;
     double *zfunc;
     ALPHA =  EFF_FACTOR_PL_INDEX;
-    const gsl_interp2d_type *T = gsl_interp2d_bilinear;
-    const size_t N = 1000;
-    int count;
-    int Mcount = 100;
-    int zcount = 20;
-    const double xM[Mcount];
-    const double yz[zcount];
-    const size_t nx = sizeof(xM) / sizeof(double);
-    const size_t ny = sizeof(yz) / sizeof(double);
-    gsl_spline2d *spline = gsl_spline2d_alloca(T,nx,ny);
-    gsl_interp_accel *xacc = gsl_interp_accel_alloc();
-    gsl_interp_accel *yacc = gsl_interp_accel_alloc();
-
-   
+       
     // check arguments
     if ((argc>2) && (argv[1][0]=='-') && ((argv[1][1]=='p') || (argv[1][1]=='P'))){
         // user specified num proc
@@ -174,6 +159,9 @@ int main(int argc, char ** argv){
     growth_factor = dicke(REDSHIFT);
     pixel_volume = pow(BOX_LEN/(float)HII_DIM, 3);
     pixel_mass = RtoM(L_FACTOR*BOX_LEN/(float)HII_DIM);
+    ION_EFF_FACTOR = 14.7384321 - 3.08795244*REDSHIFT + 2.48229837e-1*REDSHIFT*REDSHIFT
+                        - 8.90204741e-3*REDSHIFT*REDSHIFT*REDSHIFT
+                        + 1.18903674e-4*REDSHIFT*REDSHIFT*REDSHIFT*REDSHIFT;
     f_coll_crit = 1/ION_EFF_FACTOR;
     cell_length_factor = L_FACTOR;
     
@@ -198,7 +186,15 @@ int main(int argc, char ** argv){
             M_MIN = TtoM(REDSHIFT, TVIR_MIN, 0.6);
     }
     else if (TVIR_MIN < 0){ // use the mass
-        M_MIN = ION_M_MIN;
+        //M_MIN = ION_M_MIN;
+        if (REDSHIFT < 13.765) {
+            M_MIN = 2.94437e6;
+        } else {
+            M_MIN = 5.37063 + 0.19152*REDSHIFT - 0.010706*REDSHIFT*REDSHIFT
+                    + 0.000206732*REDSHIFT*REDSHIFT*REDSHIFT
+                     - 1.35571e-6*REDSHIFT*REDSHIFT*REDSHIFT*REDSHIFT;
+            M_MIN = pow(10,M_MIN);
+        } 
     }
     // check for WDM
     if (P_CUTOFF && ( M_MIN < M_J_WDM())){

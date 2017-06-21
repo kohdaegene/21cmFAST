@@ -11,9 +11,9 @@
 
 
 /* COSMOLOGICAL PARAMETERS */
-#define SIGMA8 (0.815) // rms mass fluctuation on 8/hlittle Mpc scales at z=0
-#define hlittle (0.678) // little hubble h
-#define OMm  (0.308) // at z=0
+#define SIGMA8 (0.8174) // rms mass fluctuation on 8/hlittle Mpc scales at z=0
+#define hlittle (0.6693) // little hubble h
+#define OMm  (0.3202) // at z=0
 #define OMl  (float) (1.0-OMm) // at z=0
 #define OMb  (float) ((0.02226/hlittle)/hlittle) // at z=0
 #define OMn  (0.0)
@@ -21,7 +21,7 @@
 #define OMr  (8.6e-5)
 #define OMtot (1.0)
 #define Y_He (0.245)
-#define POWER_INDEX (0.968) /* power law index for the power spectrum */
+#define POWER_INDEX (0.9619) /* power law index for the power spectrum */
 #define wl   (-1.0) /* dark energy equation of state parameter (wl = -1 for vacuum ) */
 
 /* 

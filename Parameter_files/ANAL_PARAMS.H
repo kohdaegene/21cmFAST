@@ -7,7 +7,7 @@
    Minimum halo mass counted as contributing ionizing photons in the bubble code.
    
 */
-#define ION_M_MIN (double) (-1)
+#define ION_M_MIN (double) (10000)
 /* OR define it as a redshift-dependent halo virial temperature.. 
  NOTE: SET THE ONE YOU AREN'T USING TO A NEGATIVE VALUE.
  NOTE: If you are using the halo finder and studying redshift evolution over a 
@@ -15,7 +15,7 @@
        since the discretization of the halo mass by the halo finder might lead
        to redshift discontinuities.
 */
-#define ION_Tvir_MIN (double) (3e4)
+#define ION_Tvir_MIN (double) (-1)
 
 
 /*
@@ -26,7 +26,7 @@
   \zeta = HII_EFF_FACTOR * (M_halo / ION_M_MIN)^EFF_FACTOR_PL_INDEX
   see Nion_note.pdf in the root folder.
 */
-#define HII_EFF_FACTOR (float) (20)
+#define HII_EFF_FACTOR (float) (50)
 
 
 /*
@@ -35,8 +35,10 @@
 
   The traditional constant mass to ionizing light ratio (as is assumed in previous versions,
   is obtained by setting EFF_FACTOR_PL_INDEX to zero.
+
+  Set to 6789 to read in table
  */
-#define EFF_FACTOR_PL_INDEX (float) (0)
+#define EFF_FACTOR_PL_INDEX (float) (6789)
 
 
 /*
